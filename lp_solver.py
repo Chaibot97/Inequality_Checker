@@ -53,8 +53,8 @@ class FormulaTransformer(Transformer):
 
 # define a LP problem
 class Opti:
-    def __init__(self, formula, obj_fun):
-        self.obj_fun = obj_fun
+    def __init__(self, formula):
+        self.obj_fun = Term()
         self.formula = formula
         self.vars = {}
         for x in sorted(formula.get_vars()):
@@ -76,6 +76,8 @@ class Opti:
         self.value = self.obj_fun.evaluate(self.vars)
 
     def simplex(self):
+        self.obj_fun = Term(-1, 'x0')
+        print(self)
         self.simplex_auxiliary()
         if self.value == 0:
             for x in self.formula.targets:
@@ -132,7 +134,7 @@ class Opti:
                 tmp = atoms[min_index].represent(x)
                 for i in range(len(atoms)):
                     if i != min_index:
-                     atoms[i].substitute(x, tmp)
+                        atoms[i].substitute(x, tmp)
                 self.obj_fun.substitute(x, tmp)
 
                 self.simplex_recursive()
@@ -144,7 +146,7 @@ class Formula:
         targets = set()
         for i, a in enumerate(atoms):
             a.clear_negation()
-            a.to_slack(i+1)
+            a.to_slack(i + 1)
             self.atoms.append(a)
             targets = targets.union(a.targets)
 
@@ -204,7 +206,7 @@ class Atom:
 
     def clear_negation(self):
         for x in sorted(self.targets):
-            x_f, x_ff = x+'_f', x+'_ff'
+            x_f, x_ff = x + '_f', x + '_ff'
             new_term = Term(1, x_f) - Term(1, x_ff)
             self.tl.substitute(x, new_term)
             self.tr.substitute(x, new_term)
@@ -322,13 +324,10 @@ class Term:
 
 
 if __name__ == "__main__":
-    inp = "AND(x >= 1, -2/3 * x <= 1)"
-    inp = "AND(x <= 2)"
-    # inp = input()
+    inp = input()
 
     parser = formula_parser()
     par_tree = parser.parse(inp)
     formula = FormulaTransformer().transform(par_tree)
-    lp = Opti(formula, Term(-1, 'x0'))
-    print(lp)
+    lp = Opti(formula)
     lp.simplex()
