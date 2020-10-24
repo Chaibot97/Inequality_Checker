@@ -79,7 +79,16 @@ class Opti:
         self.obj_fun = Term(-1, 'x0')
         print(self)
         self.simplex_auxiliary()
+        sat = False
         if self.value == 0:
+            if self.formula.has_ineq:
+                self.simplex_ineq()
+                if float(self.value) > 0:
+                    sat = True
+            else:
+               sat = True
+
+        if sat:
             for x in self.formula.targets:
                 x_f, x_ff = x + '_f', x + '_ff'
                 new_term = Term(1, x_f) - Term(1, x_ff)
@@ -113,6 +122,11 @@ class Opti:
 
         self.simplex_recursive()
 
+    def simplex_ineq(self):
+        y = 'y0'
+        self.obj_fun = Term(1, y)
+        self.simplex_recursive()
+
     def simplex_recursive(self):
         self.evaluate()
         print(self)
@@ -137,18 +151,20 @@ class Opti:
                         atoms[i].substitute(x, tmp)
                 self.obj_fun.substitute(x, tmp)
 
-                self.simplex_recursive()
+                return self.simplex_recursive()
 
 
 class Formula:
     def __init__(self, atoms):
         self.atoms = []
         targets = set()
+        self.has_ineq = False
         for i, a in enumerate(atoms):
             a.clear_negation()
             a.to_slack(i + 1)
             self.atoms.append(a)
             targets = targets.union(a.targets)
+            self.has_ineq = self.has_ineq or a.ineq
 
         # list of original vars in the input
         self.targets = {}
@@ -175,6 +191,9 @@ class Atom:
         self.tr = tr
         self.op = op
         self.targets = self.get_vars()
+        self.ineq = False
+        if op == '<' or op == '>':
+            self.ineq = True   # contain < or >
 
     def non_basic(self):
         return self.tr.get_vars()
@@ -224,6 +243,15 @@ class Atom:
             self.tl = slack
 
         # TODO: add cases for < and  >
+        elif self.op == '<':
+            self.tl += Term(1, 'y0')
+            self.tr = self.tr - self.tl
+            self.tl = slack
+        elif self.op == '>':
+            self.tr += Term(1, 'y0')
+            self.tr = self.tl - self.tr
+            self.tl = slack
+
         self.tr += Term(1, 'x0')
         self.op = '='
 

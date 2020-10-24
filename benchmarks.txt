@@ -1,2 +1,6 @@
 AND(x >= 1, 2 * x <= 1)
 AND(x <= 2)
+AND(x >= 1, 2 * x < 1)
+AND(x < 2)
+AND(x >= 2)
+AND(x > 2)
