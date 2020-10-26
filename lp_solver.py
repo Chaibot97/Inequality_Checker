@@ -60,6 +60,7 @@ class Opti:
         for x in sorted(formula.get_vars()):
             self.vars[x] = x
         self.value = 'v'
+        self.v_is_infty = False
 
     def __str__(self):
         vertices = ', '.join([str(self.vars[k]) for k in sorted(self.vars.keys())])
@@ -83,7 +84,7 @@ class Opti:
         if self.value == 0:
             if self.formula.has_ineq:
                 self.simplex_ineq()
-                if float(self.value) > 0:
+                if self.v_is_infty or float(self.value) > 0:
                     sat = True
             else:
                sat = True
@@ -138,11 +139,14 @@ class Opti:
         atoms = self.formula.atoms
         for x in pos_terms:
             if min([a.get_coeff_of(x) for a in atoms]) >= 0:
+                self.v_is_infty = True
                 return
 
             min_index = -1
             min_constrain = float('inf')
             for i, a in enumerate(atoms):
+                if a.get_coeff_of(x) > 0:
+                    continue
                 cons = -a.constrain(x)
                 if 0 <= cons < min_constrain:
                     min_index = i
