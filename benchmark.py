@@ -17,6 +17,8 @@ if __name__ == "__main__":
     with open(args.file, 'r') as f:
         for line in f:
             line = line.strip()
+            if line[0] == '%':
+                continue
             par_tree = parser.parse(line)
             print(line)
             print('----')

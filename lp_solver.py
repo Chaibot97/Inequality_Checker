@@ -100,6 +100,13 @@ class Opti:
         # auxiliary step
         x = 'x0'
         atoms = self.formula.atoms
+
+        # basic solution feasible
+        if min([a.get_coeff_of(1) for a in atoms]) > 0:
+            self.evaluate()
+            print(self)
+            return
+
         min_index = -1
         min_constrain = float('inf')
         for i, a in enumerate(atoms):
@@ -107,12 +114,6 @@ class Opti:
             if cons < min_constrain:
                 min_index = i
                 min_constrain = cons
-
-        # basic solution feasible
-        if min_constrain > 0:
-            self.evaluate()
-            print(self)
-            return
 
         tmp = atoms[min_index].represent(x)
         for i, _ in enumerate(atoms):
@@ -136,11 +137,14 @@ class Opti:
 
         atoms = self.formula.atoms
         for x in pos_terms:
+            if min([a.get_coeff_of(x) for a in atoms]) >= 0:
+                return
+
             min_index = -1
             min_constrain = float('inf')
             for i, a in enumerate(atoms):
                 cons = -a.constrain(x)
-                if 0 < cons < min_constrain:
+                if 0 <= cons < min_constrain:
                     min_index = i
                     min_constrain = cons
 
@@ -180,8 +184,8 @@ class Formula:
     def __str__(self):
         string = 'AND('
         for a in self.atoms:
-            string += '{},'.format(a)
-        string = string[:-1] + ')'
+            string += '{}, '.format(a)
+        string = string[:-2] + ')'
         return string
 
 
@@ -207,12 +211,15 @@ class Atom:
     def represent(self, var):
         old_coeff = self.tr.remove(var)
         self.tr -= self.tl
-        self.tr.mul(-old_coeff)
+        self.tr = self.tr.mul(1/-old_coeff)
         self.tl = Term(1, var)
         return self.tr
 
     def substitute(self, old, new):
         self.tr.substitute(old, new)
+
+    def get_coeff_of(self, var):
+        return self.tr.get_coeff_of(var)
 
     def constrain(self, var):
         return self.tr.constrain(var)
@@ -271,7 +278,7 @@ class Term:
             self.vars[var] = coeff
 
     def constrain(self, var):
-        if var not in self.vars:
+        if var not in self.vars or self.vars[var] == 0:
             return float('inf')
         return self.c / self.vars[var]
 
@@ -280,6 +287,13 @@ class Term:
         coeff = self.vars[var]
         self.vars.pop(var)
         return coeff
+
+    def get_coeff_of(self, var):
+        if var == 1:
+            return self.c
+        if var not in self.vars:
+            return 0
+        return self.vars[var]
 
     def get_positive_terms(self):
         return [v for v in self.vars if self.vars[v] > 0]
@@ -303,16 +317,17 @@ class Term:
             return
         old_coeff = self.vars[old]
         self.vars.pop(old)
+        tmp = Term()
         tmp = self + new.mul(old_coeff)
         self.vars = tmp.vars
         self.c = tmp.c
 
     def mul(self, c):
-        # modifier
-        self.c *= c
+        tmp = Term()
+        tmp.c = self.c * c
         for v in self.vars:
-            self.vars[v] *= c
-        return self
+            tmp.vars[v] = self.vars[v] * c
+        return tmp
 
     def __add__(self, o):
         tmp = Term()
