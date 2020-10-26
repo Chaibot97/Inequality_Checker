@@ -1,6 +1,7 @@
 import argparse
 import lp_solver as lp
 
+
 def parseArg():
     """
     CMD argument parsing
@@ -10,6 +11,7 @@ def parseArg():
     parser.add_argument('file', metavar='fpath', type=str)
     return parser
 
+
 if __name__ == "__main__":
     args = parseArg().parse_args()
     parser = lp.formula_parser()
@@ -17,7 +19,7 @@ if __name__ == "__main__":
     with open(args.file, 'r') as f:
         for line in f:
             line = line.strip()
-            if line[0] == '%':
+            if len(line) == 0 or line[0] == '%':
                 continue
             par_tree = parser.parse(line)
             print(line)
