@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 from lark import Lark, Transformer
 from fractions import Fraction
+import argparse
+import sys
 
-AUX = 'aux' # variable used in L_aux
-POS = 'pos' # variable used in phase 2 to ensure positivity
+AUX = 'aux'  # variable used in L_aux
+POS = 'pos'  # variable used in phase 2 to ensure positivity
 
 # parser
 def formula_parser():
@@ -291,8 +293,6 @@ class Atom:
         elif self.op == '>=':
             self.tr = self.tl - self.tr
             self.tl = slack
-
-        # TODO: add cases for < and  >
         elif self.op == '<':
             self.tl += Term(1, POS)
             self.tr = self.tr - self.tl
@@ -408,6 +408,7 @@ class Term:
                 string += '{} * {} + '.format(str(coeff), v)
         return string[:-3]
 
+
 def run(inp):
     parser = formula_parser()
     par_tree = parser.parse(inp)
@@ -415,7 +416,19 @@ def run(inp):
     lp = Opti(formula)
     return lp.simplex()
 
+
+def parseArg():
+    """
+    CMD argument parsing
+    :return: the parser
+    """
+    parser = argparse.ArgumentParser(description='Simplex inequality solver')
+    parser.add_argument('infile', nargs='?', type=argparse.FileType('r'), default=sys.stdin)
+    return parser
+
+
 if __name__ == "__main__":
-    inp = input()
-    run(inp)
+    inp = parseArg().parse_args().infile.readline()
+    res = run(inp)
+    print(res)
 

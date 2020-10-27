@@ -20,6 +20,11 @@ The program will print out either
 * `UNSAT` if the input formula is unsatisfiable, or
 * a satisfying assignment of variables in the input formula.
 
+Alternatively, run
+    
+    python3 lp_solver.py IN_FILE
+    
+to read the first line of `IN_FILE` as input formula.
 
 ---
 ## Benchmarking
