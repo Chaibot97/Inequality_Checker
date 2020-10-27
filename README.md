@@ -1,12 +1,12 @@
-linear inequality checker
+Rational Linear Inequality Checker
 ===  
 Authors: Lizhou Cai, Junrui Liu  
 
 ## Prerequisites
-* python v>=3.7.4
+* python v >= 3.7.4
 * lark
 
-      pip install lark-parser
+    pip3 install lark-parser
 
 
 ## Usage
@@ -15,20 +15,31 @@ Run
 
     python3 lp_solver.py
 
-And the program will read in a line from standard input.\
+And the program will read in a line from standard input.
 The program will print out either 
-* `UNSAT` if the input formula is unsatisfiable
-* __value for all the variables in the formula__ if the input formula is unsatisfiable
+* `UNSAT` if the input formula is unsatisfiable, or
+* a satisfying assignment of variables in the input formula.
 
 
 ---
 ## Benchmarking
-To construct a benchmark:
-1. put all the formulae in one file, one for each line.
-2. add a `%` at the initial of a line to comment out that line.
+Benchmark file format:
+- Interleave a line of formula with a line that is `SAT` or `UNSAT`, e.g.
+    ```
+    AND(...)
+    UNSAT
+    
+    AND(...)
+    SAT
+    ```
+    and so on.
+
+    
+- To comment out a line, prefix it with `%`.
+- Empty lines are ignored.
 
 To run a benchmark, simply run
 
     python3 benchmark.py BENCHMARK_FILE
 
-It will run the `lp_solver` for each line of formula.
+It will run the `lp_solver.run()` for each formula in `BENCHMARK_FILE`.

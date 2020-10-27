@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import argparse
 import lp_solver as lp
 
