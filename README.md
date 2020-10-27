@@ -6,7 +6,7 @@ Authors: Lizhou Cai, Junrui Liu
 * python v >= 3.7.4
 * lark
 
-    pip3 install lark-parser
+        pip3 install lark-parser
 
 
 ## Usage
