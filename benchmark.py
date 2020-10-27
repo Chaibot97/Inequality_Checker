@@ -10,6 +10,7 @@ def parseArg():
     """
     parser = argparse.ArgumentParser(description='Simplex Benchmarking')
     parser.add_argument('file', metavar='fpath', type=str)
+    parser.add_argument('--integer', '-i', action='store_true')
     return parser
 
 
@@ -27,7 +28,7 @@ if __name__ == "__main__":
             if len(case) == 2:
                 formula, expected = case
                 print(formula)
-                res = lp.run(formula)
+                res = lp.run(formula, args.integer)
                 print(res)
                 if 'UNSAT' in expected and 'UNSAT' in res or \
                     'UNSAT' not in expected and 'UNSAT' not in res:

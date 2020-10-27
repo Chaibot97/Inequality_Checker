@@ -3,9 +3,13 @@ from lark import Lark, Transformer
 from fractions import Fraction
 import argparse
 import sys
+from math import floor, ceil
+from copy import deepcopy
+from collections import deque
 
 AUX = 'aux'  # variable used in L_aux
 POS = 'pos'  # variable used in phase 2 to ensure positivity
+
 
 # parser
 def formula_parser():
@@ -80,14 +84,30 @@ class Opti:
             self.vars[b] = a.evaluate(self.vars)
         self.value = self.obj_fun.evaluate(self.vars)
 
+    def get_res(self):
+        res = {}
+        for x in self.formula.targets:
+            x_f, x_ff = x + '_f', x + '_ff'
+            new_term = Term(1, x_f) - Term(1, x_ff)
+            res[x] = new_term.evaluate(self.vars)
+        return res
+
+    def union_atom(self, a):
+        new_formula = self.formula.union_atom(a)
+        new_prob = Opti(new_formula)
+        new_prob.obj_fun = self.obj_fun
+        new_prob.vars = self.vars
+        new_prob.value = self.value
+        return new_prob
+
     def simplex(self):
         sat = False
         if self.simplex_phase_1():
             if self.formula.has_strict_ineq:
                 if self.simplex_phase_2():
                     sat = True
-            else: # if there's no strict inequality, SAT since P1 succeeded
-               sat = True
+            else:  # if there's no strict inequality, SAT since P1 succeeded
+                sat = True
         if sat:
             res = []
             for x in self.formula.targets:
@@ -100,14 +120,14 @@ class Opti:
 
     def simplex_phase_1(self):
         """Phase 1 of simplex"""
-        self.obj_fun = Term(-1, AUX) # maximize -aux
+        self.obj_fun = Term(-1, AUX)  # maximize -aux
         print(self)
 
         atoms = self.formula.atoms
         # basic solution already feasible if each eqn's constant is >= 0
         if min([a.get_coeff_of(1) for a in atoms]) >= 0:
             pass
-        else: # some eqn contains negative constant, but can get feasible after 1 pivot
+        else:  # some eqn contains negative constant, but can get feasible after 1 pivot
             # find the eqn with the most negative constant
             # equivalently, find one that constrains aux the least,
             # since aux's coeff = 1
@@ -129,15 +149,15 @@ class Opti:
         return self.value == 0
 
     def simplex_phase_2(self):
-        self.obj_fun = Term(1, POS) # maximize positivity margin
+        self.obj_fun = Term(1, POS)  # maximize positivity margin
         # fist, we need to get rid of x0 from phase 1
         # check if aux is basic
-        aux_basic = [(i,eqn) for i, eqn in enumerate(self.formula.atoms) if AUX in eqn.basic()]
+        aux_basic = [(i, eqn) for i, eqn in enumerate(self.formula.atoms) if AUX in eqn.basic()]
         # if aux is basic, then we have
         #   aux = 0 = a_1 x_1 + ... (*), where x_i are non-basic.
         # (We know aux = 0 since phase 1 succeeded, and c = 0 since the solution is basic)
         if len(aux_basic) > 0:
-            i, eqn = aux_basic[0] # there should be only 1 such eqn
+            i, eqn = aux_basic[0]  # there should be only 1 such eqn
             # if there is some a_i at all, make x_i basic
             x_i = None
             for x_i, a_i in eqn.tr.vars.items():
@@ -145,7 +165,7 @@ class Opti:
                     break
             if x_i is not None:
                 new = eqn.represent(x_i)
-                new.substitute(AUX, Term(0)) # set aux to 0
+                new.substitute(AUX, Term(0))  # set aux to 0
                 for j, eqn in enumerate(self.formula.atoms):
                     if i != j:
                         self.formula.atoms[j].substitute(x_i, new)
@@ -168,13 +188,13 @@ class Opti:
             return
 
         atoms = self.formula.atoms
-        for x in sorted(pos_terms): # bland's rule?
+        for x in sorted(pos_terms):  # bland's rule?
             if min([a.get_coeff_of(x) for a in atoms]) >= 0:
                 # x unbounded, so we can always make objective > 0
                 if self.obj_fun.c <= 0:
-                    x_val = Term(-self.obj_fun.c + 1) # makes obj = 1
+                    x_val = Term(-self.obj_fun.c + 1)  # makes obj = 1
                 else:
-                    x_val = Term(0) # obj already > 0
+                    x_val = Term(0)  # obj already > 0
                 # Make x basic and set x = x_val
                 for i in range(len(atoms)):
                     atoms[i].substitute(x, x_val)
@@ -220,6 +240,15 @@ class Formula:
         for t in targets:
             self.targets[t] = Term(1, t)
 
+    def union_atom(self, a):
+        # for branch and bound
+        new_formula = deepcopy(self)
+        i = len(self.atoms)
+        a.clear_negation()
+        a.to_slack(i + 1)
+        new_formula.atoms.append(a)
+        return new_formula
+
     def get_vars(self):
         result = set()
         for a in self.atoms:
@@ -242,7 +271,7 @@ class Atom:
         self.targets = self.get_vars()
         self.ineq = False
         if op == '<' or op == '>':
-            self.ineq = True   # contain < or >
+            self.ineq = True  # contain < or >
 
     def non_basic(self):
         return self.tr.get_vars()
@@ -256,7 +285,7 @@ class Atom:
     def represent(self, var):
         old_coeff = self.tr.remove(var)
         self.tr -= self.tl
-        self.tr = self.tr.mul(1/-old_coeff)
+        self.tr = self.tr.mul(1 / -old_coeff)
         self.tl = Term(1, var)
         return self.tr
 
@@ -409,12 +438,47 @@ class Term:
         return string[:-3]
 
 
-def run(inp):
+def run(inp, integer=False):
     parser = formula_parser()
     par_tree = parser.parse(inp)
     formula = FormulaTransformer().transform(par_tree)
     lp = Opti(formula)
-    return lp.simplex()
+    if integer:
+        return branch_and_bound(lp)
+    else:
+        return lp.simplex()
+
+
+def branch_and_bound(s):
+    q = deque()
+    q.append(s)
+    res = search_integral_solution(q)
+    return res
+
+
+def search_integral_solution(q):
+    s = q.popleft()
+    old_s = deepcopy(s)
+    res = s.simplex()
+    if res == 'UNSAT':
+        return 'UNSAT'
+    else:
+        vals = s.get_res()
+        v = None
+        r = 0
+        for x in vals:
+            r = vals[x]
+            if r != int(r):
+                v = x
+                break
+        if not v:
+            return res
+        else:
+            prob1 = old_s.union_atom(Atom(Term(1, v), Term(floor(r), '1'), '<='))
+            prob2 = old_s.union_atom(Atom(Term(1, v), Term(ceil(r), '1'), '>='))
+            q.append(prob1)
+            q.append(prob2)
+            return search_integral_solution(q)
 
 
 def parseArg():
@@ -424,11 +488,12 @@ def parseArg():
     """
     parser = argparse.ArgumentParser(description='Simplex inequality solver')
     parser.add_argument('infile', nargs='?', type=argparse.FileType('r'), default=sys.stdin)
+    parser.add_argument('--integer', '-i', action='store_true')
     return parser
 
 
 if __name__ == "__main__":
-    inp = parseArg().parse_args().infile.readline()
-    res = run(inp)
+    args = parseArg().parse_args()
+    inp = args.infile.readline()
+    res = run(inp, args.integer)
     print(res)
-
