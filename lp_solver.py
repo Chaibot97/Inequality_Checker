@@ -1,6 +1,9 @@
 from lark import Lark, Transformer
 from fractions import Fraction
 
+AUX = 'aux' # variable used in L_aux
+POS = 'pos' # variable used in phase 2 to ensure positivity
+
 # parser
 def formula_parser():
     grammar = """
@@ -51,7 +54,6 @@ class FormulaTransformer(Transformer):
         return Formula(args)
 
 
-# define a LP problem
 class Opti:
     def __init__(self, formula):
         self.obj_fun = Term()
@@ -60,7 +62,6 @@ class Opti:
         for x in sorted(formula.get_vars()):
             self.vars[x] = x
         self.value = 'v'
-        self.v_is_infty = False
 
     def __str__(self):
         vertices = ', '.join([str(self.vars[k]) for k in sorted(self.vars.keys())])
@@ -77,57 +78,84 @@ class Opti:
         self.value = self.obj_fun.evaluate(self.vars)
 
     def simplex(self):
-        self.obj_fun = Term(-1, 'x0')
-        print(self)
-        self.simplex_auxiliary()
         sat = False
-        if self.value == 0:
-            if self.formula.has_ineq:
-                self.simplex_ineq()
-                if self.v_is_infty or float(self.value) > 0:
+        if self.simplex_phase_1():
+            if self.formula.has_strict_ineq:
+                if self.simplex_phase_2():
                     sat = True
-            else:
+            else: # if there's no strict inequality, SAT since P1 succeeded
                sat = True
-
         if sat:
+            res = []
             for x in self.formula.targets:
                 x_f, x_ff = x + '_f', x + '_ff'
                 new_term = Term(1, x_f) - Term(1, x_ff)
-                print('{}={}'.format(x, new_term.evaluate(self.vars)))
+                res.append('{}={}'.format(x, new_term.evaluate(self.vars)))
         else:
-            print('UNSAT')
+            res = ['UNSAT']
+        return '\n'.join(res)
 
-    def simplex_auxiliary(self):
-        # auxiliary step
-        x = 'x0'
+    def simplex_phase_1(self):
+        """Phase 1 of simplex"""
+        self.obj_fun = Term(-1, AUX) # maximize -aux
+        print(self)
+
         atoms = self.formula.atoms
-
-        # basic solution feasible
-        if min([a.get_coeff_of(1) for a in atoms]) > 0:
-            self.evaluate()
-            print(self)
-            return
-
-        min_index = -1
-        min_constrain = float('inf')
-        for i, a in enumerate(atoms):
-            cons = a.constrain(x)
-            if cons < min_constrain:
-                min_index = i
-                min_constrain = cons
-
-        tmp = atoms[min_index].represent(x)
-        for i, _ in enumerate(atoms):
-            if i != min_index:
-                atoms[i].substitute(x, tmp)
-        self.obj_fun.substitute(x, tmp)
+        # basic solution already feasible if each eqn's constant is >= 0
+        if min([a.get_coeff_of(1) for a in atoms]) >= 0:
+            pass
+        else: # some eqn contains negative constant, but can get feasible after 1 pivot
+            # find the eqn with the most negative constant
+            # equivalently, find one that constrains aux the least,
+            # since aux's coeff = 1
+            min_index = -1
+            min_constrain = float('inf')
+            for i, a in enumerate(atoms):
+                cons = a.constrain(AUX)
+                if cons < min_constrain:
+                    min_index = i
+                    min_constrain = cons
+            # make aux basic and perform necessary substitutions
+            tmp = atoms[min_index].represent(AUX)
+            for i, _ in enumerate(atoms):
+                if i != min_index:
+                    atoms[i].substitute(AUX, tmp)
+            self.obj_fun.substitute(AUX, tmp)
 
         self.simplex_recursive()
+        return self.value == 0
 
-    def simplex_ineq(self):
-        y = 'y0'
-        self.obj_fun = Term(1, y)
+    def simplex_phase_2(self):
+        self.obj_fun = Term(1, POS) # maximize positivity margin
+        # fist, we need to get rid of x0 from phase 1
+        # check if aux is basic
+        aux_basic = [(i,eqn) for i, eqn in enumerate(self.formula.atoms) if AUX in eqn.basic()]
+        # if aux is basic, then we have
+        #   aux = 0 = a_1 x_1 + ... (*), where x_i are non-basic.
+        # (We know aux = 0 since phase 1 succeeded, and c = 0 since the solution is basic)
+        if len(aux_basic) > 0:
+            i, eqn = aux_basic[0] # there should be only 1 such eqn
+            # if there is some a_i at all, make x_i basic
+            x_i = None
+            for x_i, a_i in eqn.tr.vars.items():
+                if a_i != 0:
+                    break
+            if x_i is not None:
+                new = eqn.represent(x_i)
+                new.substitute(AUX, Term(0)) # set aux to 0
+                for j, eqn in enumerate(self.formula.atoms):
+                    if i != j:
+                        self.formula.atoms[j].substitute(x_i, new)
+                self.obj_fun.substitute(x_i, new)
+            # else, we have the trivial eqn aux = 0, so delete this one
+            else:
+                self.formula.atoms.remove(i)
+        # else, aux is non basic, so just set aux = 0 in every eqn
+        else:
+            for eqn in self.formula.atoms:
+                eqn.substitute(AUX, Term(0))
         self.simplex_recursive()
+        return self.value > 0
 
     def simplex_recursive(self):
         self.evaluate()
@@ -137,9 +165,19 @@ class Opti:
             return
 
         atoms = self.formula.atoms
-        for x in pos_terms:
+        for x in sorted(pos_terms): # bland's rule?
             if min([a.get_coeff_of(x) for a in atoms]) >= 0:
-                self.v_is_infty = True
+                # x unbounded, so we can always make objective > 0
+                if self.obj_fun.c <= 0:
+                    x_val = Term(-self.obj_fun.c + 1) # makes obj = 1
+                else:
+                    x_val = Term(0) # obj already > 0
+                # Make x basic and set x = x_val
+                for i in range(len(atoms)):
+                    atoms[i].substitute(x, x_val)
+                self.obj_fun.substitute(x, x_val)
+                atoms.append(Atom(Term(1, x), x_val, '='))
+                self.evaluate()
                 return
 
             min_index = -1
@@ -166,13 +204,13 @@ class Formula:
     def __init__(self, atoms):
         self.atoms = []
         targets = set()
-        self.has_ineq = False
+        self.has_strict_ineq = False
         for i, a in enumerate(atoms):
             a.clear_negation()
             a.to_slack(i + 1)
             self.atoms.append(a)
             targets = targets.union(a.targets)
-            self.has_ineq = self.has_ineq or a.ineq
+            self.has_strict_ineq = self.has_strict_ineq or a.ineq
 
         # list of original vars in the input
         self.targets = {}
@@ -255,15 +293,15 @@ class Atom:
 
         # TODO: add cases for < and  >
         elif self.op == '<':
-            self.tl += Term(1, 'y0')
+            self.tl += Term(1, POS)
             self.tr = self.tr - self.tl
             self.tl = slack
         elif self.op == '>':
-            self.tr += Term(1, 'y0')
+            self.tr += Term(1, POS)
             self.tr = self.tl - self.tr
             self.tl = slack
 
-        self.tr += Term(1, 'x0')
+        self.tr += Term(1, AUX)
         self.op = '='
 
     def __str__(self):
@@ -369,12 +407,14 @@ class Term:
                 string += '{} * {} + '.format(str(coeff), v)
         return string[:-3]
 
-
-if __name__ == "__main__":
-    inp = input()
-
+def run(inp):
     parser = formula_parser()
     par_tree = parser.parse(inp)
     formula = FormulaTransformer().transform(par_tree)
     lp = Opti(formula)
-    lp.simplex()
+    return lp.simplex()
+
+if __name__ == "__main__":
+    inp = input()
+    run(inp)
+
