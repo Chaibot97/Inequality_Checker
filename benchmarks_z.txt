@@ -1,0 +1,84 @@
+% Integer satisfiability
+
+AND(x >= 1, 2 * x <= 1)
+UNSAT
+
+AND(x <= 2)
+SAT
+
+AND(x >= 2)
+SAT
+
+AND(3 * x + 4 * x1 >= -1, 4 * x1 <= -40, 2*x1 + 64*x >= 10/3)
+SAT
+
+AND(3 * x + 4 * x1 >= 0, 3 * x1 <= 40)
+SAT
+
+AND(3 * x + 4 * x1 >= -1, x1 <= 10, x1 + x >= 1)
+SAT
+
+AND(x1 >= 10, x1 + x >= 1)
+SAT
+
+AND(1 <= 3 * x - 6 * y, 3 * x - 6 * y <= 2)
+UNSAT
+
+AND(x <= 2, x >= 2)
+SAT
+
+AND(x<=2, x>2)
+UNSAT
+
+AND(x >= 1, 2 * x < 1)
+UNSAT
+
+AND(x < 2)
+SAT
+
+AND(x > 2)
+SAT
+
+AND(x < 2, x > 2)
+UNSAT
+
+AND(x < 2, x > 1, x > 3/2)
+UNSAT
+
+AND(a<b, b<c)
+SAT
+
+AND(a<b, b<c, c<a)
+UNSAT
+
+AND(a<=b, b<=c, c<=a)
+SAT
+
+AND(a<=b, b<c, c<=a)
+UNSAT
+
+AND(a+b<c, a>=c)
+SAT
+
+AND(a+b<c, a>=1/2*c, b>=1/2*c)
+UNSAT
+
+AND(a+b<=c, a>=1/2*c, b>=1/2*c, a>100000000000000)
+SAT
+
+AND(a>1/100000000000, a<2/100000000000)
+UNSAT
+
+AND(x>0, x<1/1000000)
+UNSAT
+
+AND(x >= 1, y >= 1, x + y <= 1)
+UNSAT
+
+AND(x >= 1, y >= 1, x + y <= 3/2)
+UNSAT
+
+AND(x >= 1, y >= 1, x + y <= 2)
+SAT
+
+

@@ -1,4 +1,4 @@
-Rational Linear Inequality Checker
+Rational and Integer Linear Inequality Checker
 ===  
 Authors: Lizhou Cai, Junrui Liu  
 
@@ -15,6 +15,8 @@ Run
 
     python3 lp_solver.py [-i]
 
+where `-i` is the flag for running Branch and Bound Algorithm to get only integer results.
+
 And the program will read in a line from standard input.
 The program will print out either 
 * `UNSAT` if the input formula is unsatisfiable, or
@@ -25,8 +27,6 @@ Alternatively, run
     python3 lp_solver.py IN_FILE [-i]
     
 to read the first line of `IN_FILE` as input formula.
-
-`-i` is the flag for running Branch and Bound Algorithm to get only integer results.
 
 ---
 ## Benchmarking
